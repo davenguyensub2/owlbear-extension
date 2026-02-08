@@ -1,9 +1,9 @@
 {
-  "name": "Hello, World!",
+  "name": "Custom extension",
   "version": "1.0.0",
   "manifest_version": 1,
   "action": {
-    "title": "Hello, World!",
+    "title": "Custom extension",
     "icon": "/icon.svg",
     "popover": "/",
     "height": 600,
