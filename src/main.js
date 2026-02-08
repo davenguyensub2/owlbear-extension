@@ -1,24 +1,46 @@
-import './style.css'
-import javascriptLogo from './javascript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.js'
+// import OBR from "@owlbear-rodeo/sdk";
 
-document.querySelector('#app').innerHTML = `
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-      <img src="${javascriptLogo}" class="logo vanilla" alt="JavaScript logo" />
-    </a>
-    <h1>Hello Vite!</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite logo to learn more
-    </p>
-  </div>
-`
+// OBR.interaction.startItemInteraction
 
-setupCounter(document.querySelector('#counter'))
+// OBR.onReady(() => {
+//   let isDragging = false;
+//   let startPosition = { x: 0, y: 0 };
+
+//   // Sử dụng vòng lặp 60fps của trình duyệt để "bắt" hành động kéo
+//   const updateLoop = async () => {
+//     const selection = await OBR.player.getSelection();
+
+//     console.log(selection);
+//     if (selection && selection.length > 0) {
+//       // 1. Lấy tọa độ CHUỘT (Pointer) - Luôn thay đổi khi bạn di chuyển
+      
+//       // 2. Lấy tọa độ ITEM - Chỉ thay đổi SAU KHI THẢ (nhưng ta cần nó làm điểm gốc)
+//       const items = await OBR.scene.items.getItems(selection);
+//       const item = items[0];
+
+//       if (item) {
+//         if (1) {
+//           isDragging = true;
+//           startPosition = item.position; // Điểm bắt đầu cố định
+//           console.log("Bắt đầu kéo từ:", startPosition);
+//         }
+
+//         // ĐÂY LÀ NƠI PHÉP MÀU XẢY RA:
+//         // pointerPos chính là nơi cái Token đang 'đu bám' theo
+        
+//         // Bạn gọi hàm vẽ đường kẻ từ startPosition đến pointerPos ở đây
+//         // renderDistance(startPosition, pointerPos);
+//       }
+//     } else {
+//       if (1) {
+//         isDragging = false;
+//         console.log("Đã thả chuột, kết thúc đo đạc.");
+//         // clearGraphics();
+//       }
+//     }
+    
+//     requestAnimationFrame(updateLoop);
+//   };
+
+//   updateLoop();
+// });

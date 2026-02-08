@@ -10,5 +10,8 @@
   },
   "devDependencies": {
     "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "@owlbear-rodeo/sdk": "^3.1.0"
   }
 }
