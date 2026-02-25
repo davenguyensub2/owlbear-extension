@@ -9,9 +9,14 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
     "vite": "^7.2.4"
   },
   "dependencies": {
-    "@owlbear-rodeo/sdk": "^3.1.0"
+    "@google/generative-ai": "^0.24.1",
+    "@owlbear-rodeo/sdk": "^3.1.0",
+    "@tailwindcss/postcss": "^4.1.18"
   }
 }
