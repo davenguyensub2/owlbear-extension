@@ -6,7 +6,7 @@ import { trackCharacterMoving } from "./services/character-moving-tracker.js";
 import { AppLayout } from "./components/Layout.js";
 import { MetadataEditor } from "./components/MetadataEditor.js";
 import { AIConsole } from "./components/AIConsole.js";
-import { Settings } from "./components/settings.js";
+import { Settings } from "./components/Settings.js";
 
 import { eventDispatcher } from "./api/OBREventDispatcher.js";
 
