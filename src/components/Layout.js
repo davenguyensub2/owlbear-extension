@@ -18,7 +18,7 @@ export class AppLayout {
     this.container.append(this.nav, this.content);
   }
 
-  addTab(iconContent, onClick) {
+  addTab(iconContent, onClick, ) {
     const btn = document.createElement("button");
     btn.className =
       "nav-btn group flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 hover:bg-amber-500/10 active:scale-90 relative cursor-pointer";
