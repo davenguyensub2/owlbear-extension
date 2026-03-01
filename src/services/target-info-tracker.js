@@ -27,7 +27,7 @@ async function updateTargetNote(targetItem) {
   if (!infoNote) return;
 
   // 1. Lấy đúng phần dữ liệu trong namespace của bạn
-  const customData = targetItem.metadata[constants.EXTENSION_METADATA_KEY] || {};
+  const customData = targetItem.metadata[constants.EXTENSION_METADATA_AI_GM] || {};
   
   // 2. Chuẩn bị tiêu đề và nội dung JSON
   const title = `${targetItem.name}`;

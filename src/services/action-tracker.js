@@ -16,7 +16,7 @@ export class ActionTracker {
           x: Math.round(i.position.x),
           y: Math.round(i.position.y),
           data: JSON.parse(
-            JSON.stringify(i.metadata[constants.EXTENSION_METADATA_KEY] || {}),
+            JSON.stringify(i.metadata[constants.EXTENSION_METADATA_AI_GM] || {}),
           ),
         });
       });
@@ -32,7 +32,7 @@ export class ActionTracker {
         const current = {
           x: Math.round(item.position.x),
           y: Math.round(item.position.y),
-          data: item.metadata[constants.EXTENSION_METADATA_KEY] || {},
+          data: item.metadata[constants.EXTENSION_METADATA_AI_GM] || {},
         };
 
         // 1. Kiểm tra di chuyển

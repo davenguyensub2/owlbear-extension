@@ -7,7 +7,7 @@ import { AppLayout } from "./components/Layout.js";
 import { MetadataEditor } from "./components/MetadataEditor.js";
 import { AIConsole } from "./components/AIConsole.js";
 import { Settings } from "./components/Settings.js";
-
+import { StacksControl } from "./components/StacksControl.js";
 import { eventDispatcher } from "./api/OBREventDispatcher.js";
 
 eventDispatcher.init();
@@ -18,6 +18,7 @@ trackCharacterMoving();
 const metadataEditor = new MetadataEditor();
 const aiConsole = new AIConsole();
 const settings = new Settings();
+const stacksControl = new StacksControl();
 
 const layout = new AppLayout();
 
@@ -33,6 +34,8 @@ layout.addTab('✦', () => {
     layout.setContent(aiConsole.getElement());
 })
 
-layout.render();
+layout.addTab('🃏', () => {
+    layout.setContent(stacksControl.getElement());
+})
 
-// test account
+layout.render();
