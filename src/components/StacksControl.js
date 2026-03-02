@@ -479,7 +479,7 @@ export class StacksControl {
 
     const label = createElement(
       "span",
-      "flex-1 truncate",
+      "flex-1",
       content.split("|")[0],
     );
 
