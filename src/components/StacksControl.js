@@ -15,10 +15,7 @@ export class StacksControl {
     );
 
     // 2. Top Panel: Chứa Title và Form tạo Stack
-    this.topPanel = createElement(
-      "div",
-      "flex-none border-gray-700",
-    );
+    this.topPanel = createElement("div", "flex-none border-gray-700");
     const addStackArea = this.renderAddStackArea();
     const moveToolbar = this.renderMoveToolbar();
 
@@ -418,51 +415,59 @@ export class StacksControl {
 
   async restackStack(discardStackName) {
     const stacks = await this.getCurrentStacks();
-    
-    // 1. Kiểm tra xem tên stack có kết thúc bằng "_discard" không
-    if (!discardStackName.endsWith("_discard")) {
-        console.warn("Đây không phải là chồng bài bỏ (discard stack)");
-        return;
-    }
 
-    // 2. Tìm tên stack gốc bằng cách bỏ đi phần "_discard"
+    // 1. Kiểm tra tên có đuôi _discard
+    if (!discardStackName || !discardStackName.endsWith("_discard")) return;
+
+    // 2. Tìm stack gốc
     const targetStackName = discardStackName.replace("_discard", "");
 
-    // 3. Kiểm tra xem stack gốc có tồn tại không
-    if (!(targetStackName in stacks)) {
-        console.error(`Không tìm thấy stack gốc: ${targetStackName}`);
-        return;
+    // 3. Kiểm tra tồn tại
+    if (!stacks || !(targetStackName in stacks)) {
+      console.error(`Không tìm thấy xấp bài gốc: ${targetStackName}`);
+      return;
     }
 
-    // 4. Chuyển toàn bộ bài từ discard sang target
-    // Dùng spread operator [...] để nối mảng cho nhanh
-    const cardsToRestack = stacks[discardStackName] || [];
-    stacks[targetStackName] = [...(stacks[targetStackName] || []), ...cardsToRestack];
-    
-    // 5. Làm trống chồng bài bỏ
+    // 4. Gom bài
+    const discardCards = stacks[discardStackName] || [];
+    if (discardCards.length === 0) return; // Không có bài bỏ thì không cần xáo lại
+
+    // Nối mảng: Bài gốc cũ + Bài từ xấp bỏ
+    stacks[targetStackName] = [
+      ...(stacks[targetStackName] || []),
+      ...discardCards,
+    ];
+
+    // 5. Reset xấp bỏ
     stacks[discardStackName] = [];
 
-    // 6. Xáo bài (Shuffle) chồng bài gốc sau khi đã nhận bài mới
+    // 6. Shuffle (Dùng Fisher-Yates)
     this.shuffleArray(stacks[targetStackName]);
 
-    // 7. Lưu lại và vẽ lại giao diện
+    // 7. Lưu và vẽ lại
     await this.saveCurrentStacks(stacks);
-    this.render(); // Gọi hàm render của bạn để cập nhật UI
 
-    // Bonus: Thông báo vào chat cho chuyên nghiệp
-    try {
-        const pName = await OBR.player.getName();
-        await OBR.chat.sendMessage(`🔄 **${pName}** đã xáo lại chồng bài **${targetStackName}** từ xấp bài bỏ.`);
-    } catch (e) {}
-}
-
-// Hàm hỗ trợ xáo mảng (Fisher-Yates Shuffle)
-shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+    // Kiểm tra xem hàm render có tồn tại không trước khi gọi
+    if (typeof this.render === "function") {
+      this.render();
     }
-}
+
+    // Chat thông báo
+    try {
+      const pName = await OBR.player.getName();
+      await OBR.chat.sendMessage(
+        `🔄 **${pName}** đã gom bài từ **${discardStackName}** về **${targetStackName}** và xáo lại!`,
+      );
+    } catch (e) {}
+  }
+
+  // Hàm hỗ trợ xáo mảng (Fisher-Yates Shuffle)
+  shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
   async sortStack(name) {
     const stacks = await this.getCurrentStacks();
     if (!stacks[name]) return;
@@ -528,11 +533,7 @@ shuffleArray(array) {
     );
     badge.innerText = isSelected > -1 ? isSelected + 1 : "";
 
-    const label = createElement(
-      "span",
-      "flex-1",
-      content.split("|")[0],
-    );
+    const label = createElement("span", "flex-1", content.split("|")[0]);
 
     row.onclick = () => this.toggleSelectCard(stackName, index);
     row.append(badge, label);
