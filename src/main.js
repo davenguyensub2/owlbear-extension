@@ -9,6 +9,7 @@ import { AIConsole } from "./components/AIConsole.js";
 import { Settings } from "./components/Settings.js";
 import { StacksControl } from "./components/StacksControl.js";
 import { eventDispatcher } from "./api/OBREventDispatcher.js";
+import { RandomTool } from "./components/RandomTool.js";
 
 eventDispatcher.init();
 
@@ -19,19 +20,20 @@ const metadataEditor = new MetadataEditor();
 const aiConsole = new AIConsole();
 const settings = new Settings();
 const stacksControl = new StacksControl();
+const randomTool = new RandomTool();
 
 const layout = new AppLayout();
 
-layout.addTab('⚙️', () => {
-    layout.setContent(settings.getElement());
-});
+// layout.addTab('⚙️', () => {
+//     layout.setContent(settings.getElement());
+// });
 
 layout.addTab('👥', () => {
     layout.setContent(metadataEditor.getElement());
 })
 
-layout.addTab('✦', () => {
-    layout.setContent(aiConsole.getElement());
+layout.addTab('🎲', () => {
+    layout.setContent(randomTool.getElement());
 })
 
 layout.addTab('🃏', () => {
