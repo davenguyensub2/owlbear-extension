@@ -2,6 +2,7 @@ import OBR from "@owlbear-rodeo/sdk";
 
 import { trackTargetInfo } from "./services/target-info-tracker.js";
 import { trackCharacterMoving } from "./services/character-moving-tracker.js";
+import { trackStatModifying } from "./services/stat-mod-tracker.js";
 
 import { AppLayout } from "./components/Layout.js";
 import { MetadataEditor } from "./components/MetadataEditor.js";
@@ -15,6 +16,7 @@ eventDispatcher.init();
 
 // background services
 trackCharacterMoving();
+trackStatModifying();
 
 const metadataEditor = new MetadataEditor();
 const aiConsole = new AIConsole();

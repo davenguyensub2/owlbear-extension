@@ -6,7 +6,7 @@ export class RandomTool {
     const saved = localStorage.getItem('random_counters');
     this.counters = saved ? JSON.parse(saved) : [this.createNewCounterData("Player 1", "#3b82f6")];
     
-    this.container = createElement("div", "flex flex-col gap-4 w-full p-2 animate-fade-in");
+    this.container = createElement("div", "flex flex-col gap-1 w-full p-2 animate-fade-in");
     this.render();
   }
 
@@ -41,15 +41,15 @@ export class RandomTool {
     header.appendChild(addBtn);
     this.container.appendChild(header);
 
-    const list = createElement("div", "flex flex-col gap-4");
+    const list = createElement("div", "flex flex-col gap-1");
     
     this.counters.forEach(c => {
       // Container chính với Border màu chủ đạo
-      const card = createElement("div", "relative flex flex-col gap-3 p-4 bg-black/40 rounded-xl border-l-4 shadow-xl transition-all");
+      const card = createElement("div", "relative flex flex-col gap-1 p-4 bg-black/40 rounded-xl border-l-4 shadow-xl transition-all");
       card.style.borderLeftColor = c.color;
 
       // --- DÒNG TIÊU ĐỀ: ĐỔI TÊN & CHỌN MÀU ---
-      const topRow = createElement("div", "flex items-center gap-2");
+      const topRow = createElement("div", "flex items-center gap-1");
       
       // Color Picker mini
       const colorInput = createElement("input", "w-4 h-4 bg-transparent border-none cursor-pointer");
@@ -74,23 +74,23 @@ export class RandomTool {
       topRow.append(colorInput, nameInput, delBtn);
 
       // --- HIỂN THỊ KẾT QUẢ ---
-      const mainSection = createElement("div", "flex items-center justify-around py-2");
+      const mainSection = createElement("div", "flex items-center justify-around py-1");
       
       const resultView = createElement("div", "text-center");
-      const resultVal = createElement("div", "text-5xl font-black tracking-tighter", c.lastResult || "-");
+      const resultVal = createElement("div", "text-lg font-black tracking-tighter", c.lastResult || "-");
       resultVal.style.color = c.color;
       resultView.append(resultVal, createElement("div", "text-[8px] text-gray-500 uppercase", "Result"));
 
       const maxView = createElement("div", "text-center opacity-60");
-      const maxVal = createElement("div", "text-2xl font-bold", c.currentMax);
+      const maxVal = createElement("div", "text-lg font-bold", c.currentMax);
       maxView.append(maxVal, createElement("div", "text-[8px] text-gray-500 uppercase", "Current Max"));
 
       mainSection.append(resultView, maxView);
 
       // --- NÚT BẤM (ROLL dùng màu chủ đạo) ---
-      const actionRow = createElement("div", "flex gap-2");
+      const actionRow = createElement("div", "flex gap-1");
       
-      const rollBtn = createElement("button", "flex-[2] py-2 rounded-lg font-black text-xs shadow-lg active:scale-95 transition-transform text-white", "ROLL");
+      const rollBtn = createElement("button", "flex-[2] font-black text-xs shadow-lg active:scale-95 transition-transform text-white", "ROLL");
       rollBtn.style.backgroundColor = c.color;
       rollBtn.onclick = async () => {
           if (c.currentMax < 1) return;
@@ -105,7 +105,7 @@ export class RandomTool {
           } catch(e) {}
       };
 
-      const resetBtn = createElement("button", "flex-1 bg-white/5 hover:bg-white/10 py-2 rounded-lg text-[10px] font-bold text-gray-400 border border-white/5", "RESET");
+      const resetBtn = createElement("button", "flex-1 bg-white/5 hover:bg-white/10 font-bold text-gray-400 border border-white/5", "RESET");
       resetBtn.onclick = () => { c.currentMax = c.defaultValue; c.lastResult = 0; this.save(); this.render(); };
 
       actionRow.append(rollBtn, resetBtn);
@@ -113,7 +113,7 @@ export class RandomTool {
       // --- CÀI ĐẶT NHỎ ---
       const settingsRow = createElement("div", "flex items-center justify-between text-[9px] text-gray-500 font-bold uppercase");
       
-      const setGroup = createElement("div", "flex items-center gap-3");
+      const setGroup = createElement("div", "flex items-center gap-1");
       
       // Default Value Input
       const defLabel = createElement("label", "flex items-center gap-1");

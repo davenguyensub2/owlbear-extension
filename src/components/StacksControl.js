@@ -17,24 +17,17 @@ export class StacksControl {
     // 2. Top Panel: Chứa Title và Form tạo Stack
     this.topPanel = createElement(
       "div",
-      "flex-none pb-4 border-b border-gray-700",
-    );
-
-    const title = createElement(
-      "div",
-      "text-xl font-bold uppercase tracking-tighter mb-2",
-      "Stacks Control",
+      "flex-none border-gray-700",
     );
     const addStackArea = this.renderAddStackArea();
     const moveToolbar = this.renderMoveToolbar();
 
-    this.topPanel.appendChild(title);
     this.topPanel.append(addStackArea, moveToolbar);
 
     // 3. Bottom Panel: Chứa danh sách các Stack
     this.bottomPanel = createElement(
       "div",
-      "flex-1 overflow-y-auto mt-4 pr-1 custom-scrollbar",
+      "flex-1 overflow-y-auto pr-1 custom-scrollbar",
     );
     this.stacksListContainer = createElement("div", "space-y-4 text-sm");
 
@@ -98,16 +91,17 @@ export class StacksControl {
   renderMoveToolbar() {
     const row = createElement(
       "div",
-      "flex flex-wrap items-center gap-1 mt-2 p-2 bg-gray-900 rounded border border-gray-700 text-[11px]",
+      "flex flex-wrap items-center gap-1 mt-2 p-2 bg-gray-900 rounded border border-gray-700 text-lg",
     );
 
     // 1. Số lượng (0 = Selected)
     this.moveAmountInput = createElement(
       "input",
-      "bg-black border border-gray-600 rounded px-1",
+      "bg-black border border-gray-600 rounded px-1 w-20",
       "0",
     );
     this.moveAmountInput.type = "number";
+    this.moveAmountInput.defaultValue = 1;
 
     // 2. Dropdown Stack Nguồn
     this.sourceStackSelect = createElement(
@@ -145,7 +139,7 @@ export class StacksControl {
       "select",
       "bg-gray-800 border border-gray-600 rounded",
     );
-    ["Top", "Bot", "Random", "Index"].forEach((p) => {
+    ["Auto", "Top", "Bot", "Random", "Index"].forEach((p) => {
       const opt = createElement("option", "", p);
       opt.value = p.toLowerCase();
       this.tgtPosSelect.appendChild(opt);
@@ -173,7 +167,7 @@ export class StacksControl {
     const moveBtn = createElement(
       "button",
       "bg-blue-600 hover:bg-blue-500 px-2 py-1 rounded font-bold ml-auto",
-      "MOVE",
+      "Move",
     );
     moveBtn.onclick = () => this.executeComplexMove();
 
@@ -245,7 +239,7 @@ export class StacksControl {
     let cardsToMove = [];
 
     // --- BƯỚC 1: LẤY BÀI RA (SOURCE) ---
-    if ((amount === 0 || !amount)&& this.selectedCards.length > 0) {
+    if ((amount === 0 || !amount) && this.selectedCards.length > 0) {
       // Lấy theo danh sách đã chọn (Select)
       // Sắp xếp index từ lớn đến bé để splice không làm lệch mảng
       const selectedFromSrc = this.selectedCards
@@ -292,6 +286,8 @@ export class StacksControl {
       let insIdx = parseInt(this.tgtIndexInput.value) - 1;
       insIdx = Math.max(0, Math.min(insIdx, stacks[tgtName].length));
       stacks[tgtName].splice(insIdx, 0, ...cardsToMove);
+    } else if (tgtPos === "auto") {
+      stacks[srcName + "_discard"].unshift(...cardsToMove);
     }
 
     // Reset trạng thái và lưu
@@ -363,6 +359,14 @@ export class StacksControl {
       );
       sortBtn.onclick = () => this.sortStack(stackName);
 
+      // Restack
+      const restackBtn = createElement(
+        "div",
+        "border p-1 cursor-pointer text-sm hover:bg-gray-600",
+        "Restack",
+      );
+      restackBtn.onclick = () => this.restackStack(stackName);
+
       // Nút Edit
       const editBtn = createElement(
         "div",
@@ -382,7 +386,7 @@ export class StacksControl {
       );
       delBtn.onclick = () => this.deleteStack(stackName);
 
-      btnGroup.append(showBtn, shufBtn, sortBtn, editBtn, delBtn);
+      btnGroup.append(showBtn, shufBtn, sortBtn, restackBtn, editBtn, delBtn);
       header.append(stackNameDiv, btnGroup);
       stackWrapper.appendChild(header);
 
@@ -412,6 +416,53 @@ export class StacksControl {
     }
   }
 
+  async restackStack(discardStackName) {
+    const stacks = await this.getCurrentStacks();
+    
+    // 1. Kiểm tra xem tên stack có kết thúc bằng "_discard" không
+    if (!discardStackName.endsWith("_discard")) {
+        console.warn("Đây không phải là chồng bài bỏ (discard stack)");
+        return;
+    }
+
+    // 2. Tìm tên stack gốc bằng cách bỏ đi phần "_discard"
+    const targetStackName = discardStackName.replace("_discard", "");
+
+    // 3. Kiểm tra xem stack gốc có tồn tại không
+    if (!(targetStackName in stacks)) {
+        console.error(`Không tìm thấy stack gốc: ${targetStackName}`);
+        return;
+    }
+
+    // 4. Chuyển toàn bộ bài từ discard sang target
+    // Dùng spread operator [...] để nối mảng cho nhanh
+    const cardsToRestack = stacks[discardStackName] || [];
+    stacks[targetStackName] = [...(stacks[targetStackName] || []), ...cardsToRestack];
+    
+    // 5. Làm trống chồng bài bỏ
+    stacks[discardStackName] = [];
+
+    // 6. Xáo bài (Shuffle) chồng bài gốc sau khi đã nhận bài mới
+    this.shuffleArray(stacks[targetStackName]);
+
+    // 7. Lưu lại và vẽ lại giao diện
+    await this.saveCurrentStacks(stacks);
+    this.render(); // Gọi hàm render của bạn để cập nhật UI
+
+    // Bonus: Thông báo vào chat cho chuyên nghiệp
+    try {
+        const pName = await OBR.player.getName();
+        await OBR.chat.sendMessage(`🔄 **${pName}** đã xáo lại chồng bài **${targetStackName}** từ xấp bài bỏ.`);
+    } catch (e) {}
+}
+
+// Hàm hỗ trợ xáo mảng (Fisher-Yates Shuffle)
+shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
   async sortStack(name) {
     const stacks = await this.getCurrentStacks();
     if (!stacks[name]) return;
