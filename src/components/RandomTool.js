@@ -3,18 +3,18 @@ import OBR from "@owlbear-rodeo/sdk";
 
 export class RandomTool {
   constructor() {
-    // Lưu danh sách các bộ đếm vào localStorage để không bị mất khi F5
     const saved = localStorage.getItem('random_counters');
-    this.counters = saved ? JSON.parse(saved) : [this.createNewCounterData("Player 1")];
+    this.counters = saved ? JSON.parse(saved) : [this.createNewCounterData("Player 1", "#3b82f6")];
     
     this.container = createElement("div", "flex flex-col gap-4 w-full p-2 animate-fade-in");
     this.render();
   }
 
-  createNewCounterData(name = "New Tracker") {
+  createNewCounterData(name = "New Tracker", color = "#3b82f6") {
     return {
       id: Date.now() + Math.random(),
       name: name,
+      color: color, // Màu mặc định (Blue)
       defaultValue: 20,
       currentMax: 20,
       isSimulation: false,
@@ -26,36 +26,13 @@ export class RandomTool {
     localStorage.setItem('random_counters', JSON.stringify(this.counters));
   }
 
-  async executeRoll(id) {
-    const c = this.counters.find(item => item.id === id);
-    if (!c || c.currentMax < 1) return;
-
-    const result = Math.floor(Math.random() * c.currentMax) + 1;
-    c.lastResult = result;
-
-    if (c.isSimulation && c.currentMax > 1) {
-      c.currentMax--;
-    }
-
-    this.save();
-    this.render(); // Vẽ lại để cập nhật số
-
-    try {
-      if (OBR.isReady) {
-        const playerName = await OBR.player.getName();
-        await OBR.chat.sendMessage(`🎲 **${playerName}** [${c.name}] rút: **${result}** (1-${c.currentMax + (c.isSimulation ? 1 : 0)})`);
-      }
-    } catch (e) {}
-  }
-
   render() {
     this.container.replaceChildren();
 
-    // Thanh tiêu đề và nút Thêm khung mới
     const header = createElement("div", "flex justify-between items-center mb-2");
     header.innerHTML = `<div class="text-xl font-black uppercase tracking-tighter">Tools</div>`;
     
-    const addBtn = createElement("button", "bg-blue-600 hover:bg-blue-500 text-[10px] font-bold px-3 py-1 rounded uppercase", "+ Add Tracker");
+    const addBtn = createElement("button", "bg-white/10 hover:bg-white/20 text-[10px] font-bold px-3 py-1 rounded border border-white/10 uppercase", "+ Add Tracker");
     addBtn.onclick = () => {
       this.counters.push(this.createNewCounterData(`Player ${this.counters.length + 1}`));
       this.save();
@@ -64,72 +41,100 @@ export class RandomTool {
     header.appendChild(addBtn);
     this.container.appendChild(header);
 
-    // Danh sách các khung Random
     const list = createElement("div", "flex flex-col gap-4");
     
     this.counters.forEach(c => {
-      const card = createElement("div", "relative flex flex-col gap-3 p-4 bg-white/5 rounded-xl border border-white/10 overflow-hidden");
+      // Container chính với Border màu chủ đạo
+      const card = createElement("div", "relative flex flex-col gap-3 p-4 bg-black/40 rounded-xl border-l-4 shadow-xl transition-all");
+      card.style.borderLeftColor = c.color;
+
+      // --- DÒNG TIÊU ĐỀ: ĐỔI TÊN & CHỌN MÀU ---
+      const topRow = createElement("div", "flex items-center gap-2");
       
-      // Nút xóa khung (X)
-      const delBtn = createElement("button", "absolute top-2 right-2 text-gray-600 hover:text-red-500 text-xs", "✕");
+      // Color Picker mini
+      const colorInput = createElement("input", "w-4 h-4 bg-transparent border-none cursor-pointer");
+      colorInput.type = "color";
+      colorInput.value = c.color;
+      colorInput.onchange = (e) => { c.color = e.target.value; this.save(); this.render(); };
+
+      // Input Tên
+      const nameInput = createElement("input", "bg-transparent border-none text-[11px] font-black uppercase outline-none flex-1");
+      nameInput.style.color = c.color;
+      nameInput.value = c.name;
+      nameInput.onchange = (e) => { c.name = e.target.value; this.save(); };
+      nameInput.onkeydown = (e) => e.stopPropagation();
+
+      const delBtn = createElement("button", "text-gray-600 hover:text-red-500 text-xs px-1", "✕");
       delBtn.onclick = () => {
         this.counters = this.counters.filter(item => item.id !== c.id);
         this.save();
         this.render();
       };
 
-      // Tên bộ đếm (có thể sửa)
-      const nameInput = createElement("input", "bg-transparent border-none text-[10px] font-bold uppercase text-blue-400 outline-none w-2/3");
-      nameInput.value = c.name;
-      nameInput.onchange = (e) => { c.name = e.target.value; this.save(); };
+      topRow.append(colorInput, nameInput, delBtn);
 
-      // Hiển thị Kết quả to và Max hiện tại
-      const mainSection = createElement("div", "flex items-center justify-between gap-4");
+      // --- HIỂN THỊ KẾT QUẢ ---
+      const mainSection = createElement("div", "flex items-center justify-around py-2");
       
-      const resultView = createElement("div", "flex flex-col items-center flex-1");
-      const resultVal = createElement("div", "text-4xl font-black", c.lastResult || "-");
-      const resultLabel = createElement("div", "text-[8px] text-gray-500 uppercase", "Last Result");
-      resultView.append(resultVal, resultLabel);
+      const resultView = createElement("div", "text-center");
+      const resultVal = createElement("div", "text-5xl font-black tracking-tighter", c.lastResult || "-");
+      resultVal.style.color = c.color;
+      resultView.append(resultVal, createElement("div", "text-[8px] text-gray-500 uppercase", "Result"));
 
-      const maxView = createElement("div", "flex flex-col items-center flex-1 border-l border-white/10");
-      const maxVal = createElement("div", "text-2xl font-bold text-gray-400", c.currentMax);
-      const maxLabel = createElement("div", "text-[8px] text-gray-500 uppercase", "Current Max");
-      maxView.append(maxVal, maxLabel);
+      const maxView = createElement("div", "text-center opacity-60");
+      const maxVal = createElement("div", "text-2xl font-bold", c.currentMax);
+      maxView.append(maxVal, createElement("div", "text-[8px] text-gray-500 uppercase", "Current Max"));
 
       mainSection.append(resultView, maxView);
 
-      // Điều khiển: ROLL & SETTINGS
-      const actionRow = createElement("div", "flex gap-2 items-center");
+      // --- NÚT BẤM (ROLL dùng màu chủ đạo) ---
+      const actionRow = createElement("div", "flex gap-2");
       
-      const rollBtn = createElement("button", "flex-[2] bg-indigo-600 py-2 rounded font-bold text-sm shadow-lg active:scale-95", "ROLL");
-      rollBtn.onclick = () => this.executeRoll(c.id);
+      const rollBtn = createElement("button", "flex-[2] py-2 rounded-lg font-black text-xs shadow-lg active:scale-95 transition-transform text-white", "ROLL");
+      rollBtn.style.backgroundColor = c.color;
+      rollBtn.onclick = async () => {
+          if (c.currentMax < 1) return;
+          const res = Math.floor(Math.random() * c.currentMax) + 1;
+          c.lastResult = res;
+          if (c.isSimulation && c.currentMax > 1) c.currentMax--;
+          this.save();
+          this.render();
+          try {
+              const pName = await OBR.player.getName();
+              await OBR.chat.sendMessage(`[${c.name}] **${pName}** rolled: **${res}**`);
+          } catch(e) {}
+      };
 
-      const resetBtn = createElement("button", "flex-1 bg-white/10 py-2 rounded text-[10px] font-bold hover:bg-white/20", "RESET");
+      const resetBtn = createElement("button", "flex-1 bg-white/5 hover:bg-white/10 py-2 rounded-lg text-[10px] font-bold text-gray-400 border border-white/5", "RESET");
       resetBtn.onclick = () => { c.currentMax = c.defaultValue; c.lastResult = 0; this.save(); this.render(); };
 
       actionRow.append(rollBtn, resetBtn);
 
-      // Cài đặt nhỏ bên dưới
-      const settingsRow = createElement("div", "flex items-center justify-between pt-2 border-t border-white/5");
+      // --- CÀI ĐẶT NHỎ ---
+      const settingsRow = createElement("div", "flex items-center justify-between text-[9px] text-gray-500 font-bold uppercase");
       
-      const defBox = createElement("div", "flex items-center gap-1");
-      const defLab = createElement("span", "text-[8px] text-gray-500 uppercase", "Init:");
-      const defInp = createElement("input", "bg-black/40 border border-white/10 rounded w-10 text-[10px] text-center");
+      const setGroup = createElement("div", "flex items-center gap-3");
+      
+      // Default Value Input
+      const defLabel = createElement("label", "flex items-center gap-1");
+      const defInp = createElement("input", "bg-black/20 border border-white/10 rounded w-8 text-center text-white");
       defInp.type = "number";
       defInp.value = c.defaultValue;
       defInp.onchange = (e) => { c.defaultValue = parseInt(e.target.value) || 1; this.save(); };
-      defBox.append(defLab, defInp);
+      defLabel.append(createElement("span", "", "Deck:"), defInp);
 
-      const simLab = createElement("label", "flex items-center gap-1 cursor-pointer");
-      const simInp = createElement("input", "w-3 h-3");
+      // Checkbox Simulation
+      const simLabel = createElement("label", "flex items-center gap-1 cursor-pointer");
+      const simInp = createElement("input", "w-3 h-3 accent-current");
       simInp.type = "checkbox";
       simInp.checked = c.isSimulation;
       simInp.onchange = (e) => { c.isSimulation = e.target.checked; this.save(); };
-      simLab.append(simInp, createElement("span", "text-[8px] text-gray-500 uppercase", "Sim"));
+      simLabel.append(simInp, createElement("span", "", "Sim"));
 
-      settingsRow.append(defBox, simLab);
+      setGroup.append(defLabel, simLabel);
+      settingsRow.append(setGroup);
 
-      card.append(delBtn, nameInput, mainSection, actionRow, settingsRow);
+      card.append(topRow, mainSection, actionRow, settingsRow);
       list.appendChild(card);
     });
 
