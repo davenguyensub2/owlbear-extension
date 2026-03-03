@@ -1,68 +1,77 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { eventDispatcher } from "../api/OBREventDispatcher";
 
-let isProcessing = false;
+const processingTokens = new Set();
 
 export const trackStatModifying = async () => {
   eventDispatcher.subscribe("scene.items.onchange", async (items) => {
-    if (isProcessing) return;
     await handleStatMod(items);
   });
 };
 
 const handleStatMod = async (items) => {
-  if (isProcessing) return;
-
   const activeMods = items.filter(
-    (i) => i.name.startsWith("mod_") || i.name.startsWith("toggle_"),
+    (i) => i.name.startsWith("mod_") || i.name.startsWith("toggle_")
   );
 
-  for (const modToken of activeMods) {
-    const allItems = await OBR.scene.items.getItems();
+  const allItems = await OBR.scene.items.getItems();
 
+  for (const modToken of activeMods) {
+    // const allItems = await OBR.scene.items.getItems();
+    
+    // Tìm Nhà (Dock)
+    const dockName = `${modToken.name}_box`;
+    const dockItem = allItems.find((i) => i.name === dockName);
+    const homePos = dockItem ? dockItem.position : null;
+
+    // --- CƠ CHẾ THÁO CỜ ---
+    // Nếu Token đã quay về nhà (khớp tọa độ), xóa khỏi danh sách đang xử lý
+    if (homePos && isAtHome(modToken.position, homePos)) {
+      processingTokens.delete(modToken.id);
+      continue; // Đã về nhà thì không check va chạm nữa
+    }
+
+    // Nếu Token đang bị gắn cờ (đang bay về nhà), bỏ qua mọi xử lý tiếp theo
+    if (processingTokens.has(modToken.id)) continue;
+
+    // --- KIỂM TRA VA CHẠM ---
     const target = allItems.find(
       (i) =>
         i.layer === "CHARACTER" &&
         isOverlapping(modToken.position, i.position) &&
-        i.id !== modToken.id,
+        i.id !== modToken.id
     );
 
     if (target) {
-      isProcessing = true;
+      // --- GẮN CỜ ID ---
+      processingTokens.add(modToken.id);
 
-      const dockName = `${modToken.name}_box`;
-      const dockItem = allItems.find((i) => i.name === dockName);
-      const homePos = dockItem ? dockItem.position : modToken.position;
-
-      // --- BƯỚC QUAN TRỌNG: Tính toán Title mới TRƯỚC khi update ---
       const finalTitle = await calculateNewTitle(modToken, target);
 
-      // Nếu nhấn Cancel ở prompt hoặc lỗi, mở khóa và dừng
       if (finalTitle === null) {
-        isProcessing = false;
+        processingTokens.delete(modToken.id); // Người dùng cancel thì tháo cờ luôn
         return;
       }
 
-      // --- BƯỚC 2: Cập nhật CẢ 2 cùng lúc trong 1 lần gọi duy nhất ---
+      // Cập nhật Atomic
+      console.log("Update atomic", modToken.id, target.id);
       await OBR.scene.items.updateItems([modToken.id, target.id], (updates) => {
         for (let item of updates) {
           if (item.id === modToken.id) {
-            item.position = homePos; // Đưa token về box
-          } else if (item.id === target.id) {
-            if (item.text) {
-              item.text.plainText = finalTitle; // Đổi title character
-            }
+            if (homePos) item.position = homePos;
+          } else if (item.id === target.id && item.text) {
+            item.text.plainText = finalTitle;
           }
         }
       });
-
-      // Đợi sync hoàn tất rồi mới cho phép nhận event mới
-      setTimeout(() => {
-        isProcessing = false;
-      }, 300); 
     }
   }
 };
+
+// Hàm bổ trợ kiểm tra đã về nhà chưa (cho phép sai số nhỏ 1-2 pixel do làm tròn)
+function isAtHome(pos1, pos2) {
+  return Math.abs(pos1.x - pos2.x) < 1 && Math.abs(pos1.y - pos2.y) < 1;
+}
 
 // Tách riêng logic tính toán chuỗi để code sạch
 async function calculateNewTitle(modToken, target) {
