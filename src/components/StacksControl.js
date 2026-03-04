@@ -403,7 +403,7 @@ export class StacksControl {
         );
         items.forEach((item, index) => {
           list.appendChild(
-            this.createCardLine(stackName, item, index, allStacks),
+            this.createCardLine(stackName, item, index)
           );
         });
         stackWrapper.appendChild(list);
@@ -413,53 +413,66 @@ export class StacksControl {
     }
   }
 
-  async restackStack(discardStackName) {
+ async restackStack(discardStackName) {
     const stacks = await this.getCurrentStacks();
 
-    // 1. Kiểm tra tên có đuôi _discard
+    // 1. Kiểm tra tên và tính hợp lệ
     if (!discardStackName || !discardStackName.endsWith("_discard")) return;
-
-    // 2. Tìm stack gốc
     const targetStackName = discardStackName.replace("_discard", "");
 
-    // 3. Kiểm tra tồn tại
     if (!stacks || !(targetStackName in stacks)) {
-      console.error(`Không tìm thấy xấp bài gốc: ${targetStackName}`);
-      return;
+        console.error(`Không tìm thấy xấp bài gốc: ${targetStackName}`);
+        return;
     }
 
-    // 4. Gom bài
-    const discardCards = stacks[discardStackName] || [];
-    if (discardCards.length === 0) return; // Không có bài bỏ thì không cần xáo lại
+    const currentDiscardCards = stacks[discardStackName] || [];
+    if (currentDiscardCards.length === 0) return;
 
-    // Nối mảng: Bài gốc cũ + Bài từ xấp bỏ
+    let cardsToMove = [];
+    let remainingDiscardCards = [];
+
+    // 2. Phân loại bài dựa trên INDEX
+    if (this.selectedCards && this.selectedCards.length > 0) {
+        // Lấy danh sách các index được chọn TRONG xấp bài bỏ này
+        const selectedIndices = new Set(
+            this.selectedCards
+                .filter(c => c.stack === discardStackName)
+                .map(c => c.index)
+        );
+
+        // Duyệt qua xấp discard hiện tại, dựa vào index để phân loại
+        currentDiscardCards.forEach((card, idx) => {
+            if (selectedIndices.has(idx)) {
+                cardsToMove.push(card); // Bài được chọn để xáo lại
+            } else {
+                remainingDiscardCards.push(card); // Bài ở lại xấp bỏ
+            }
+        });
+    } else {
+        // Nếu không chọn gì -> Mặc định gom hết như cũ
+        cardsToMove = [...currentDiscardCards];
+        remainingDiscardCards = [];
+    }
+
+    if (cardsToMove.length === 0) {
+        console.warn("Không có lá bài nào được chọn từ xấp này.");
+        return;
+    }
+
+    // 3. Thực hiện nối bài và Xáo (Shuffle)
     stacks[targetStackName] = [
-      ...(stacks[targetStackName] || []),
-      ...discardCards,
+        ...(stacks[targetStackName] || []),
+        ...cardsToMove,
     ];
-
-    // 5. Reset xấp bỏ
-    stacks[discardStackName] = [];
-
-    // 6. Shuffle (Dùng Fisher-Yates)
     this.shuffleArray(stacks[targetStackName]);
 
-    // 7. Lưu và vẽ lại
+    // 4. Cập nhật lại xấp bài bỏ (chỉ còn lại những lá không được chọn)
+    stacks[discardStackName] = remainingDiscardCards;
+
+    // 5. Quan trọng: Reset danh sách chọn và lưu dữ liệu
+    this.selectedCards = []; 
     await this.saveCurrentStacks(stacks);
-
-    // Kiểm tra xem hàm render có tồn tại không trước khi gọi
-    if (typeof this.render === "function") {
-      this.render();
-    }
-
-    // Chat thông báo
-    try {
-      const pName = await OBR.player.getName();
-      await OBR.chat.sendMessage(
-        `🔄 **${pName}** đã gom bài từ **${discardStackName}** về **${targetStackName}** và xáo lại!`,
-      );
-    } catch (e) {}
-  }
+}
 
   // Hàm hỗ trợ xáo mảng (Fisher-Yates Shuffle)
   shuffleArray(array) {
