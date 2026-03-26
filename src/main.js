@@ -12,17 +12,19 @@ import { AIConsole } from "./components/AIConsole.js";
 import { Settings } from "./components/Settings.js";
 import { StacksControl } from "./components/StacksControl.js";
 import { RandomTool } from "./components/RandomTool.js";
+import { DiceThroneSetup } from "./components/DiceThroneSetup.js";
 
 OBR.onReady(async () => {
   eventDispatcher.init();
-  trackStatModifying();
+//   trackStatModifying();
 });
 
-const metadataEditor = new MetadataEditor();
-const aiConsole = new AIConsole();
-const settings = new Settings();
-const stacksControl = new StacksControl();
-const randomTool = new RandomTool();
+// const metadataEditor = new MetadataEditor();
+// const aiConsole = new AIConsole();
+// const settings = new Settings();
+// const stacksControl = new StacksControl();
+// const randomTool = new RandomTool();
+const diceThroneSetup = new DiceThroneSetup();
 
 const layout = new AppLayout();
 
@@ -30,16 +32,20 @@ const layout = new AppLayout();
 //     layout.setContent(settings.getElement());
 // });
 
-layout.addTab('👥', () => {
-    layout.setContent(metadataEditor.getElement());
-})
+// layout.addTab('👥', () => {
+//     layout.setContent(metadataEditor.getElement());
+// })
 
-layout.addTab('🎲', () => {
-    layout.setContent(randomTool.getElement());
-})
+// layout.addTab('🎲', () => {
+//     layout.setContent(randomTool.getElement());
+// })
 
-layout.addTab('🃏', () => {
-    layout.setContent(stacksControl.getElement());
+// layout.addTab('🃏', () => {
+//     layout.setContent(stacksControl.getElement());
+// })
+
+layout.addTab('DT', () => {
+    layout.setContent(diceThroneSetup.getElement());
 })
 
 layout.render();

@@ -1,13 +1,13 @@
 {
-  "name": "Custom extension",
+  "name": "Local Extension",
   "version": "1.0.0",
   "manifest_version": 1,
   "action": {
-    "title": "Custom extension",
+    "title": "Local Extension",
     "icon": "/icon.svg",
     "popover": "/",
     "height": 600,
-    "width": 800
+    "width": 500
   },
   "background_url": "/background.html"
 }
