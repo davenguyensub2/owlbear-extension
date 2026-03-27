@@ -31,6 +31,7 @@ const TRACKER_UI_SCHEMA = {
 };
 
 const processingHandles = new Set();
+const processingPullers = new Set();
 
 export class DiceThroneSetup {
   constructor() {
@@ -108,6 +109,9 @@ export class DiceThroneSetup {
             if (data.newTextContent !== undefined && item.text?.richText) {
               item.text.richText[0].children[0].text = data.newTextContent;
             }
+            if (data.rotation !== undefined) {
+              item.rotation = data.rotation;
+            }
           });
         },
       );
@@ -123,17 +127,15 @@ export class DiceThroneSetup {
     for (const dice of dices) {
       const meta = dice.metadata || {};
 
-      // Làm tròn tọa độ để so sánh an toàn
       const curX = Math.round(dice.position.x);
       const curY = Math.round(dice.position.y);
       const lastX = Math.round(meta.lastX || 0);
       const lastY = Math.round(meta.lastY || 0);
 
+      // Chặn loop bằng tọa độ (Rất an toàn cho Dice)
       if (curX === lastX && curY === lastY) continue;
 
-      // Kiểm tra va chạm với Tray
       const isInAnyTray = diceTrays.some((tray) => {
-        // Lấy kích thước thực tế từ khay (nếu có lưu trong metadata) hoặc dùng hằng số
         const width = tray.width || 6 * GRID_UNIT;
         const height = tray.height || 2 * GRID_UNIT;
 
@@ -146,19 +148,21 @@ export class DiceThroneSetup {
       });
 
       let targetUrl = dice.image.url;
+      let targetRotation = dice.rotation || 0;
 
       if (isInAnyTray) {
         const faces = meta.faces || [];
         if (faces.length > 0) {
-          // Chỉ đổi mặt nếu đây là lần đầu tiên nó lọt vào khay
-          // hoặc nó vừa di chuyển một quãng đường đáng kể trong khay
+          // Đổi mặt xúc xắc
           targetUrl = faces[Math.floor(Math.random() * faces.length)];
+          targetRotation = Math.random() * 90 - 90;
         }
       }
 
       updates.push({
         id: dice.id,
-        image: { ...dice.image, url: targetUrl }, // Cấu trúc chuẩn để hàm cha dùng
+        image: { ...dice.image, url: targetUrl },
+        rotation: targetRotation, // Thêm góc xoay vào update
         metadata: {
           ...meta,
           lastX: dice.position.x,
@@ -174,54 +178,62 @@ export class DiceThroneSetup {
     // console.log("handleCardChange", cards, cardPullers);
     const GRID_UNIT = 150;
     const updates = [];
-    const DRAW_OFFSET = 3 * GRID_UNIT;
+    const DRAW_OFFSET = 9 * GRID_UNIT;
 
     if (cardPullers.length === 0 || cards.length === 0) return [];
 
     for (const puller of cardPullers) {
       const pMeta = puller.metadata || {};
+      const pId = puller.id;
 
-      // 1. Chặn loop
+      // --- 1. CƠ CHẾ THÁO CỜ ---
+      // Nếu Puller đã nhảy đến vị trí đích (lastX, lastY), tháo cờ để có thể rút tiếp
       if (
         puller.position.x === pMeta.lastX &&
         puller.position.y === pMeta.lastY
-      )
+      ) {
+        processingPullers.delete(pId);
         continue;
+      }
 
-      // 2. Lọc các lá bài đang nằm dưới Puller (và chưa được rút)
+      if (processingPullers.has(pId)) continue;
+
+      // 2. Lọc các lá bài (Chỉ lấy những lá chưa rút: isCard === true)
       const cardsUnderPuller = cards.filter((card) => {
         const isUnder =
-          Math.abs(card.position.x - puller.position.x) < GRID_UNIT &&
+          Math.abs(card.position.x - puller.position.x) < GRID_UNIT && // Thu hẹp vùng check để chính xác hơn
           Math.abs(card.position.y - puller.position.y) < GRID_UNIT;
-        return isUnder && card.metadata?.isCard;
+        return isUnder && card.metadata?.isCard === true;
       });
 
       if (cardsUnderPuller.length > 0) {
-        // 3. LẤY NGẪU NHIÊN thay vì lấy topCard
+        // --- GẮN CỜ PULLER ---
+        processingPullers.add(pId);
+
+        // 3. Chọn bài ngẫu nhiên
         const randomIndex = Math.floor(Math.random() * cardsUnderPuller.length);
         const selectedCard = cardsUnderPuller[randomIndex];
 
         const newPosition = {
           x: puller.position.x + DRAW_OFFSET,
-          y: puller.position.y,
+          y: puller.position.y + DRAW_OFFSET,
         };
 
-        // 4. Cập nhật lá bài được chọn
+        // 4. Cập nhật lá bài
         updates.push({
           id: selectedCard.id,
           position: newPosition,
-          // Đẩy lá bài lên trên cùng sau khi rút để người chơi dễ thấy
           zIndex: Math.max(...cards.map((c) => c.zIndex || 0)) + 1,
           metadata: {
             ...selectedCard.metadata,
-            isCard: false,
+            isCard: false, // Đánh dấu đã rút
             isDrawn: true,
           },
         });
 
         // 5. Cập nhật Puller nhảy theo
         updates.push({
-          id: puller.id,
+          id: pId,
           position: newPosition,
           metadata: {
             ...pMeta,
@@ -229,10 +241,14 @@ export class DiceThroneSetup {
             lastY: newPosition.y,
           },
         });
+
+        // Sau khi rút 1 lá, dừng xử lý Puller này trong lượt này
+        // (Đảm bảo tính "Atomic": 1 lần kéo = 1 lá)
+        continue;
       } else {
-        // Cập nhật vị trí chặn loop khi di chuyển Puller không trúng bài
+        // Cập nhật lastX/lastY khi di chuyển Puller không trúng bài
         updates.push({
-          id: puller.id,
+          id: pId,
           metadata: {
             ...pMeta,
             lastX: puller.position.x,
@@ -705,7 +721,7 @@ export class DiceThroneSetup {
 
     // 2. TẠO DICE TRAY
     const trayWidth = 6 * GRID_UNIT; // Rộng hơn một chút để chứa 5 viên thoải mái
-    const trayHeight = 4 * GRID_UNIT;
+    const trayHeight = 6 * GRID_UNIT;
 
     // Đặt Tray ở phía trên (Y = 0)
     const trayPos = { x: startX * GRID_UNIT, y: 0 };
