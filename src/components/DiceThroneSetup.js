@@ -262,6 +262,7 @@ export class DiceThroneSetup {
   }
 
   async handleTrackerChange(handles) {
+    const GRID_UNIT = 150;
     const updates = [];
     if (handles.length === 0) return updates;
 
@@ -270,64 +271,64 @@ export class DiceThroneSetup {
     );
     const parents = await OBR.scene.items.getItems(parentIds);
 
+    // Ngưỡng kích hoạt (Thresholds)
+    const THRESHOLD_1 = GRID_UNIT/2; // Kéo quá 50px thì bắt đầu tính là thay đổi
+    const THRESHOLD_5 = 5 * GRID_UNIT; // Kéo quá 300px thì tính là thay đổi 5 đơn vị
+
     for (const handle of handles) {
       const meta = handle.metadata;
       const board = parents.find((p) => p.id === handle.attachedTo);
       if (!meta || !board) continue;
 
-      // Tọa độ "Nhà" (Home) dựa trên Offset đã lưu
+      // Tọa độ "Nhà" (Home)
       const homePos = {
         x: board.position.x + meta.offsetX,
         y: board.position.y + meta.offsetY,
       };
 
       // --- CƠ CHẾ THÁO CỜ ---
-      // Hàm isAtHome kiểm tra xem Handle đã về đúng vị trí chuẩn chưa (sai số 5px)
       if (this.isAtHome(handle.position, homePos)) {
         processingHandles.delete(handle.id);
         continue;
       }
 
-      // Nếu Handle đang bị gắn cờ (đang trong quá trình reset), bỏ qua mọi xử lý
       if (processingHandles.has(handle.id)) continue;
 
       // --- KIỂM TRA KÉO LỆCH (Trigger) ---
       const diffY = handle.position.y - homePos.y;
-      const threshold = 50;
+      const absDiffY = Math.abs(diffY);
 
-      if (Math.abs(diffY) > threshold) {
-        // --- GẮN CỜ ID ---
+      if (absDiffY > THRESHOLD_1) {
+        // GẮN CỜ ID để tránh trigger liên tục khi đang xử lý
         processingHandles.add(handle.id);
 
-        const action = diffY < 0 ? "TĂNG" : "GIẢM";
-        const input = window.prompt(
-          `${meta.hero || "Tracker"}: Bạn muốn ${action} bao nhiêu?`,
-        );
+        // 1. Xác định hướng (Kéo lên < 0 là TĂNG)
+        const direction = diffY < 0 ? 1 : -1;
 
-        if (input === null) {
-          // Người dùng Cancel: Tháo cờ ngay để có thể kéo lại lần sau
-          processingHandles.delete(handle.id);
-        } else {
-          const amount = parseInt(input);
-          if (!isNaN(amount) && amount !== 0) {
-            const textItems = await OBR.scene.items.getItems([
-              meta.targetTextId,
-            ]);
-            const textItem = textItems[0];
+        // 2. Xác định lượng thay đổi (1 hoặc 5)
+        const amount = absDiffY >= THRESHOLD_5 ? 5 : 1;
+        const change = amount * direction;
 
-            if (textItem?.text?.richText) {
-              let oldVal = parseInt(textItem.text.richText[0].children[0].text);
-              let newVal = diffY < 0 ? oldVal + amount : oldVal - amount;
-              newVal = Math.max(
-                meta.minVal || 0,
-                Math.min(meta.maxVal || 50, newVal),
-              );
+        // 3. Lấy text item để cập nhật giá trị
+        const textItems = await OBR.scene.items.getItems([meta.targetTextId]);
+        const textItem = textItems[0];
 
-              updates.push({
-                id: meta.targetTextId,
-                newTextContent: newVal.toString(),
-              });
-            }
+        if (textItem?.text?.richText) {
+          let oldVal =
+            parseInt(textItem.text.richText[0].children[0].text) || 0;
+          let newVal = oldVal + change;
+
+          // Giới hạn giá trị (Clamp)
+          const min = meta.minVal !== undefined ? meta.minVal : 0;
+          const max = meta.maxVal !== undefined ? meta.maxVal : 50;
+          newVal = Math.max(min, Math.min(max, newVal));
+
+          // Nếu giá trị thực sự thay đổi thì mới đẩy update text
+          if (newVal !== oldVal) {
+            updates.push({
+              id: meta.targetTextId,
+              newTextContent: newVal.toString(),
+            });
           }
         }
 
