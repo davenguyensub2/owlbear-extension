@@ -30,6 +30,8 @@ const TRACKER_UI_SCHEMA = {
   },
 };
 
+const SCRIPT_RUNNER_PLAYER_NAME = "HOST";
+
 const processingHandles = new Set();
 const processingPullers = new Set();
 
@@ -62,6 +64,9 @@ export class DiceThroneSetup {
   }
 
   async handleItemsChange(items) {
+    // const playername = await OBR.player.getName();
+    // if (playername !== SCRIPT_RUNNER_PLAYER_NAME) return;
+    const playerId = await OBR.player.getId();
     let dices = [],
       diceTrays = [],
       cards = [],
@@ -70,11 +75,12 @@ export class DiceThroneSetup {
 
     for (const item of items) {
       if (!item.metadata) continue;
-
       // Phân loại item
       if (item.metadata.isDiceTray) diceTrays.push(item);
-      else if (item.metadata.isDice) dices.push(item);
       else if (item.metadata.isCard) cards.push(item);
+
+      if (item.lastModifiedUserId !== playerId) continue;
+      else if (item.metadata.isDice) dices.push(item);
       else if (item.metadata.isCardPuller) cardPullers.push(item);
       else if (item.metadata.isTrackerHandle) trackerHandles.push(item);
     }

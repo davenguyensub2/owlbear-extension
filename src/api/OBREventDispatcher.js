@@ -5,6 +5,7 @@ class OBREventDispatcher {
     this.events = {
       "scene.items.onchange": [],
       "scene.onmetadatachange": [],
+      "scene.local.onchange": [],
       "player.onchange": [],
     };
     this.isInitialized = false;
@@ -28,6 +29,10 @@ class OBREventDispatcher {
 
     OBR.scene.onMetadataChange((metadata) => {
       this.#broadcast("scene.onmetadatachange", metadata);
+    });
+
+    OBR.scene.local.onChange((items) => {
+      this.#broadcast("scene.local.onchange", items);
     });
 
     OBR.player.onChange((players) => {
