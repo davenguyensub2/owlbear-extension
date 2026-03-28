@@ -7,7 +7,7 @@ const TRACKER_UI_SCHEMA = {
   HP: {
     widthGrid: 4,
     textYRatio: 0.35,
-    handleYRatio: 0.85,
+    handleYRatio: 1,
     fontSize: 60,
     maxVal: 100,
     defaultVal: "50",
@@ -15,7 +15,7 @@ const TRACKER_UI_SCHEMA = {
   CP: {
     widthGrid: 3,
     textYRatio: 0.05,
-    handleYRatio: 0.85,
+    handleYRatio: 1,
     fontSize: 45,
     maxVal: 50,
     defaultVal: "0",
@@ -23,7 +23,7 @@ const TRACKER_UI_SCHEMA = {
   DEFAULT: {
     widthGrid: 3,
     textYRatio: 0.05,
-    handleYRatio: 0.85,
+    handleYRatio: 1,
     fontSize: 45,
     maxVal: 50,
     defaultVal: "0",
@@ -123,7 +123,7 @@ export class DiceThroneSetup {
     }
   }
 
-async handleDiceChange(dices, diceTrays) {
+  async handleDiceChange(dices, diceTrays) {
     const GRID_UNIT = 150;
     const updates = [];
 
@@ -149,10 +149,10 @@ async handleDiceChange(dices, diceTrays) {
       // 2. Nếu đang bận xử lý (cờ đang dựng) thì bỏ qua
       if (processingDices.has(dice.id)) continue;
 
-      // 3. KIỂM TRA DI CHUYỂN: 
+      // 3. KIỂM TRA DI CHUYỂN:
       // Nếu di chuyển quá ít (dưới 10px) thì coi như chưa gieo, nhưng KHÔNG ĐƯỢC tháo cờ ở đây
       // vì người chơi có thể đang trong quá trình kéo đi xa hơn.
-      if (Math.abs(curX - lastX) < 10 && Math.abs(curY - lastY) < 10) continue;
+      // if (Math.abs(curX - lastX) < 10 && Math.abs(curY - lastY) < 10) continue;
 
       // 4. KIỂM TRA KHAY (TRAY)
       const isInAnyTray = diceTrays.some((tray) => {
@@ -173,7 +173,7 @@ async handleDiceChange(dices, diceTrays) {
         const faces = meta.faces || [];
         let targetUrl = dice.image.url;
         // Tạo góc xoay mới khác biệt hẳn góc cũ (lệch ít nhất 20 độ)
-        let targetRotation = (dice.rotation + 20 + Math.random() * 60) % 360;
+        let targetRotation = (dice.rotation + 45 + Math.random() * 90) % 360;
 
         if (faces.length > 0) {
           targetUrl = faces[Math.floor(Math.random() * faces.length)];
@@ -187,7 +187,7 @@ async handleDiceChange(dices, diceTrays) {
             ...meta,
             lastX: curX,
             lastY: curY,
-            lastRotation: Math.round(targetRotation) 
+            lastRotation: Math.round(targetRotation),
           },
         });
       }
@@ -524,6 +524,18 @@ async handleDiceChange(dices, diceTrays) {
         currentX,
       );
       itemsToSpawn.push(...trackerRes.items);
+      currentX = trackerRes.nextX;
+
+      await this.sleep(500);
+
+      // 6. Extra items
+      const extraRes = await this.setupExtraItems(
+        heroKey,
+        heroData.folders.extra?.files,
+        currentX,
+      )
+      itemsToSpawn.push(...extraRes.items);
+      currentX = extraRes.nextX;
 
       await this.sleep(500);
 
@@ -750,7 +762,8 @@ async handleDiceChange(dices, diceTrays) {
     const diceDim = await this.getImageDimensions(firstDiceUrl);
 
     // Scale xúc xắc sao cho nó chiếm khoảng 0.8 ô Grid (nhỏ hơn 1 ô để nhìn rõ khay)
-    const diceScale = (0.8 * GRID_UNIT) / diceDim.w;
+    const diceWidthInGrid = 0.8;
+    const diceScale = (diceWidthInGrid * GRID_UNIT) / diceDim.w;
 
     // 2. TẠO DICE TRAY
     const trayWidth = 6 * GRID_UNIT; // Rộng hơn một chút để chứa 5 viên thoải mái
@@ -786,7 +799,13 @@ async handleDiceChange(dices, diceTrays) {
           height: diceDim.h,
           mime: "image/webp",
         },
-        { dpi: GRID_UNIT, offset: { x: 0, y: 0 } },
+        {
+          dpi: GRID_UNIT,
+          offset: {
+            x: diceDim.w / 2,
+            y: diceDim.h / 2,
+          },
+        },
       )
         .id(`${heroKey}_dice_${i}`)
         .position({ x: posX, y: diceSpawnY })
@@ -886,12 +905,13 @@ async handleDiceChange(dices, diceTrays) {
       // 4. Tạo Handle (Sử dụng tỉ lệ từ Schema)
       const handleOffsetX = boardWidth / 2;
       const handleOffsetY = boardHeight * schema.handleYRatio;
+      const handleWidthInGrid = 1;
 
       const handle = buildShape()
         .id(`${heroKey}_${fileName}_handle`)
         .shapeType("CIRCLE")
-        .width(100) // Nút kéo vừa phải, không cần to bằng GRID_UNIT
-        .height(100)
+        .width(handleWidthInGrid * GRID_UNIT) // Nút kéo vừa phải, không cần to bằng GRID_UNIT
+        .height(handleWidthInGrid * GRID_UNIT)
         .position({
           x: boardPos.x + handleOffsetX,
           y: boardPos.y + handleOffsetY,
@@ -918,6 +938,50 @@ async handleDiceChange(dices, diceTrays) {
     }
 
     return { items, nextX: currentX };
+  }
+
+  async setupExtraItems(heroKey, extraFiles, startX) {
+    const GRID_UNIT = 150;
+    const items = [];
+    const files = Object.entries(extraFiles || {});
+    const defaultWidthInGrid = 3;
+    if (files.length === 0) return { items: [], nextX: startX };
+
+    let currentX = startX;
+
+    for (const [fileName, rawUrl] of files) {
+      const nameLoweCase = fileName.toLowerCase();
+
+      // Lọc các file tracker
+      if (["tracker"].some((key) => nameLoweCase.includes(key)))
+        continue;
+
+      const url = this.proxyUrl(rawUrl);
+      const dim = await this.getImageDimensions(url);
+      const scale = (defaultWidthInGrid * GRID_UNIT) / dim.w;
+
+      // Tính toán kích thước thực tế sau scale
+      const boardPos = { x: currentX * GRID_UNIT, y: 0 };
+
+      // 2. Tạo Board (Gốc tọa độ)
+      const board = buildImage(
+        { url, width: dim.w, height: dim.h, mime: "image/webp" },
+        { dpi: GRID_UNIT, offset: { x: 0, y: 0 } },
+      )
+        .id(`${heroKey}_${fileName}_board`)
+        .position(boardPos)
+        .scale({ x: scale, y: scale })
+        .layer("CHARACTER")
+        .zIndex(0)
+        .build();
+      items.push(board);
+
+      currentX += 2 + 1; // Khoảng cách giữa các board
+    }
+
+    return { items, nextX: currentX };
+
+
   }
   getElement() {
     return this.container;
