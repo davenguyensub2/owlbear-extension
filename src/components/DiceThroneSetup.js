@@ -30,10 +30,9 @@ const TRACKER_UI_SCHEMA = {
   },
 };
 
-const SCRIPT_RUNNER_PLAYER_NAME = "HOST";
-
 const processingHandles = new Set();
 const processingPullers = new Set();
+const processingDices = new Set();
 
 export class DiceThroneSetup {
   constructor() {
@@ -124,7 +123,7 @@ export class DiceThroneSetup {
     }
   }
 
-  async handleDiceChange(dices, diceTrays) {
+async handleDiceChange(dices, diceTrays) {
     const GRID_UNIT = 150;
     const updates = [];
 
@@ -133,18 +132,32 @@ export class DiceThroneSetup {
     for (const dice of dices) {
       const meta = dice.metadata || {};
 
+      const curRot = Math.round(dice.rotation);
+      const lastRot = Math.round(meta.lastRotation || 0);
       const curX = Math.round(dice.position.x);
       const curY = Math.round(dice.position.y);
       const lastX = Math.round(meta.lastX || 0);
       const lastY = Math.round(meta.lastY || 0);
 
-      // Chặn loop bằng tọa độ (Rất an toàn cho Dice)
-      if (curX === lastX && curY === lastY) continue;
+      // 1. Kiểm tra xem sự thay đổi này có phải là do Script vừa update không
+      // Nếu tọa độ và góc xoay đã khớp với metadata -> Đã xử lý xong -> Tháo cờ
+      if (curRot === lastRot && curX === lastX && curY === lastY) {
+        processingDices.delete(dice.id);
+        continue;
+      }
 
+      // 2. Nếu đang bận xử lý (cờ đang dựng) thì bỏ qua
+      if (processingDices.has(dice.id)) continue;
+
+      // 3. KIỂM TRA DI CHUYỂN: 
+      // Nếu di chuyển quá ít (dưới 10px) thì coi như chưa gieo, nhưng KHÔNG ĐƯỢC tháo cờ ở đây
+      // vì người chơi có thể đang trong quá trình kéo đi xa hơn.
+      if (Math.abs(curX - lastX) < 10 && Math.abs(curY - lastY) < 10) continue;
+
+      // 4. KIỂM TRA KHAY (TRAY)
       const isInAnyTray = diceTrays.some((tray) => {
         const width = tray.width || 6 * GRID_UNIT;
-        const height = tray.height || 2 * GRID_UNIT;
-
+        const height = tray.height || 6 * GRID_UNIT;
         return (
           dice.position.x >= tray.position.x &&
           dice.position.x <= tray.position.x + width &&
@@ -153,30 +166,32 @@ export class DiceThroneSetup {
         );
       });
 
-      let targetUrl = dice.image.url;
-      let targetRotation = dice.rotation || 0;
-
       if (isInAnyTray) {
+        // DỰNG CỜ - Khóa ngay để các onChange sau (trong khi đang kéo) không lọt vào đây
+        processingDices.add(dice.id);
+
         const faces = meta.faces || [];
+        let targetUrl = dice.image.url;
+        // Tạo góc xoay mới khác biệt hẳn góc cũ (lệch ít nhất 20 độ)
+        let targetRotation = (dice.rotation + 20 + Math.random() * 60) % 360;
+
         if (faces.length > 0) {
-          // Đổi mặt xúc xắc
           targetUrl = faces[Math.floor(Math.random() * faces.length)];
-          targetRotation = Math.random() * 90 - 90;
         }
+
+        updates.push({
+          id: dice.id,
+          image: { ...dice.image, url: targetUrl },
+          rotation: targetRotation,
+          metadata: {
+            ...meta,
+            lastX: curX,
+            lastY: curY,
+            lastRotation: Math.round(targetRotation) 
+          },
+        });
       }
-
-      updates.push({
-        id: dice.id,
-        image: { ...dice.image, url: targetUrl },
-        rotation: targetRotation, // Thêm góc xoay vào update
-        metadata: {
-          ...meta,
-          lastX: dice.position.x,
-          lastY: dice.position.y,
-        },
-      });
     }
-
     return updates;
   }
 
@@ -278,7 +293,7 @@ export class DiceThroneSetup {
     const parents = await OBR.scene.items.getItems(parentIds);
 
     // Ngưỡng kích hoạt (Thresholds)
-    const THRESHOLD_1 = GRID_UNIT/2; // Kéo quá 50px thì bắt đầu tính là thay đổi
+    const THRESHOLD_1 = GRID_UNIT / 2; // Kéo quá 50px thì bắt đầu tính là thay đổi
     const THRESHOLD_5 = 5 * GRID_UNIT; // Kéo quá 300px thì tính là thay đổi 5 đơn vị
 
     for (const handle of handles) {
