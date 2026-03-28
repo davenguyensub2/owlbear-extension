@@ -34,6 +34,9 @@ const processingHandles = new Set();
 const processingPullers = new Set();
 const processingDices = new Set();
 
+const CARD_BACK_URL =
+  "https://drive.google.com/uc?export=view&id=1JBwROQeMsdhtm-nI3cRVVIXJd_3HFLKc";
+
 export class DiceThroneSetup {
   constructor() {
     this.container = createElement(
@@ -70,6 +73,7 @@ export class DiceThroneSetup {
       diceTrays = [],
       cards = [],
       cardPullers = [],
+      cardDiscardTrays = [],
       trackerHandles = [];
 
     for (const item of items) {
@@ -77,6 +81,7 @@ export class DiceThroneSetup {
       // Phân loại item
       if (item.metadata.isDiceTray) diceTrays.push(item);
       else if (item.metadata.isCard) cards.push(item);
+      else if (item.metadata.isCardDiscardTray) cardDiscardTrays.push(item);
 
       if (item.lastModifiedUserId !== playerId) continue;
       else if (item.metadata.isDice) dices.push(item);
@@ -85,7 +90,11 @@ export class DiceThroneSetup {
     }
 
     const diceUpdates = await this.handleDiceChange(dices, diceTrays);
-    const cardUpdates = await this.handleCardChange(cards, cardPullers);
+    const cardUpdates = await this.handleCardChange(
+      cards,
+      cardPullers,
+      cardDiscardTrays,
+    );
     const trackerUpdates = await this.handleTrackerChange(trackerHandles);
 
     const allUpdates = [...diceUpdates, ...cardUpdates, ...trackerUpdates];
@@ -195,11 +204,12 @@ export class DiceThroneSetup {
     return updates;
   }
 
-  async handleCardChange(cards, cardPullers) {
-    // console.log("handleCardChange", cards, cardPullers);
+  async handleCardChange(cards, cardPullers, cardDiscardTrays) {
     const GRID_UNIT = 150;
     const updates = [];
-    const DRAW_OFFSET = 9 * GRID_UNIT;
+    const localItems = [];
+    const DRAW_OFFSET_X = 0 * GRID_UNIT;
+    const DRAW_OFFSET_Y = 5 * GRID_UNIT;
 
     if (cardPullers.length === 0 || cards.length === 0) return [];
 
@@ -224,7 +234,7 @@ export class DiceThroneSetup {
         const isUnder =
           Math.abs(card.position.x - puller.position.x) < GRID_UNIT && // Thu hẹp vùng check để chính xác hơn
           Math.abs(card.position.y - puller.position.y) < GRID_UNIT;
-        return isUnder && card.metadata?.isCard === true;
+        return isUnder && !card.metadata?.isDrawn;
       });
 
       if (cardsUnderPuller.length > 0) {
@@ -236,21 +246,38 @@ export class DiceThroneSetup {
         const selectedCard = cardsUnderPuller[randomIndex];
 
         const newPosition = {
-          x: puller.position.x + DRAW_OFFSET,
-          y: puller.position.y + DRAW_OFFSET,
+          x: puller.position.x + DRAW_OFFSET_X,
+          y: puller.position.y + DRAW_OFFSET_Y,
         };
 
         // 4. Cập nhật lá bài
         updates.push({
           id: selectedCard.id,
           position: newPosition,
+          image: { ...selectedCard.image, url: this.proxyUrl(CARD_BACK_URL) },
           zIndex: Math.max(...cards.map((c) => c.zIndex || 0)) + 1,
           metadata: {
             ...selectedCard.metadata,
-            isCard: false, // Đánh dấu đã rút
             isDrawn: true,
+            frontUrl: selectedCard.image.url,
           },
         });
+
+        localItems.push({
+          ...selectedCard,
+          id: `${selectedCard.id}_local_mask`, // ID riêng biệt
+          image: { ...selectedCard.image, url: selectedCard.image.url }, // Hiện mặt trước
+          attachedTo: selectedCard.id, // Dính chặt vào lá bài server
+          disableHit: true, // Để không bấm nhầm vào cái mặt nạ này
+          zIndex: 0, // Đè lên trên mặt sau
+          metadata: {
+            ...selectedCard.metadata,
+            isDrawn: true,
+            frontUrl: selectedCard.image.url,
+          },
+          layer: "TEXT"
+        });
+
 
         // 5. Cập nhật Puller nhảy theo
         updates.push({
@@ -277,6 +304,45 @@ export class DiceThroneSetup {
           },
         });
       }
+    }
+    // 1. Xác định tất cả lá bài ĐANG nằm trong BẤT KỲ khay discard nào
+    const allCardsInsideAnyTray = cards.filter((card) => {
+      return cardDiscardTrays.some((tray) => {
+        return (
+          card.position.x >= tray.position.x &&
+          card.position.x <= tray.position.x + (tray.width || 0) &&
+          card.position.y >= tray.position.y &&
+          card.position.y <= tray.position.y + (tray.height || 0)
+        );
+      });
+    });
+
+    // 2. Duyệt qua danh sách cards để quyết định Lật hay Úp
+    for (const card of cards) {
+      const isInside = allCardsInsideAnyTray.some((c) => c.id === card.id);
+      const meta = card.metadata || {};
+
+      // TRƯỜNG HỢP 1: Bài đi VÀO khay và CHƯA lật -> LẬT LÊN
+      if (isInside && !meta.isRevealed) {
+        updates.push({
+          id: card.id,
+          image: { ...card.image, url: meta.frontUrl },
+          metadata: { ...meta, isRevealed: true },
+        });
+      }
+
+      // TRƯỜNG HỢP 2: Bài đi RA KHỎI khay và ĐANG lật -> ÚP LẠI (Nếu bạn muốn tự động)
+      else if (!isInside && meta.isRevealed) {
+        updates.push({
+          id: card.id,
+          image: { ...card.image, url: this.proxyUrl(CARD_BACK_URL) },
+          metadata: { ...meta, isRevealed: false },
+        });
+      }
+    }
+
+    if (localItems.length > 0) {
+      await OBR.scene.local.addItems(localItems);
     }
 
     return updates;
@@ -377,7 +443,6 @@ export class DiceThroneSetup {
     if (!url || !url.includes("drive.google.com")) return url;
 
     const id = url.split("id=")[1] || url.split("/d/")[1]?.split("/")[0];
-    // Cấu trúc link này của Google thường hỗ trợ hiển thị trực tiếp tốt hơn
     return `https://lh3.googleusercontent.com/d/${id}`;
   }
   renderUI() {
@@ -533,7 +598,7 @@ export class DiceThroneSetup {
         heroKey,
         heroData.folders.extra?.files,
         currentX,
-      )
+      );
       itemsToSpawn.push(...extraRes.items);
       currentX = extraRes.nextX;
 
@@ -647,6 +712,7 @@ export class DiceThroneSetup {
     const scale = (desiredCardWidth * GRID_UNIT) / cardDim.w;
     const finalWidth = desiredCardWidth * GRID_UNIT;
     const finalHeight = cardDim.h * scale;
+    const cardDiscardTraySizeInGrid = 6;
 
     // 2. Spawn các lá bài (Xếp chồng)
     for (const [index, rawUrl] of files.entries()) {
@@ -659,12 +725,30 @@ export class DiceThroneSetup {
         .position({ x: startX * GRID_UNIT, y: 0 })
         .scale({ x: scale, y: scale })
         .layer("CHARACTER")
-        .metadata({ isCard: true, hero: heroKey })
+        .metadata({ isCard: true, isDrawn: false, hero: heroKey })
         .zIndex(index)
         .build();
 
       items.push(card);
     }
+
+    const cardBack = buildImage(
+      {
+        url: this.proxyUrl(CARD_BACK_URL),
+        width: cardDim.w,
+        height: cardDim.h,
+        mime: "image/webp",
+      },
+      { dpi: GRID_UNIT, offset: { x: 0, y: 0 } },
+    )
+      .id(`${heroKey}_card_back`)
+      .position({ x: startX * GRID_UNIT, y: 0 })
+      .scale({ x: scale, y: scale })
+      .layer("CHARACTER")
+      .metadata({ hero: heroKey })
+      .zIndex(100)
+      .build();
+    items.push(cardBack);
 
     // 3. TẠO CARD PULLER (Hình vuông điều khiển)
     // Chúng ta tạo một cái Shape bao quanh chồng bài
@@ -689,13 +773,31 @@ export class DiceThroneSetup {
         lastY: 0,
       })
       .build();
-
     items.push(cardPuller);
+
+    const cardDiscardTray = buildShape()
+      .id(`${heroKey}_card_discard_tray`)
+      .shapeType("RECTANGLE")
+      .width(4 * GRID_UNIT)
+      .height(5 * GRID_UNIT)
+      .fillColor("#222222") // Màu xanh neon dễ thấy
+      .fillOpacity(0.5) // Làm mờ để vẫn thấy bài bên dưới
+      .strokeColor("#FF0000")
+      .strokeWidth(10)
+      .position({ x: startX * GRID_UNIT, y: 5 * GRID_UNIT })
+      .layer("MOUNT")
+      .name("Bỏ bài")
+      .metadata({
+        isCardDiscardTray: true,
+        hero: heroKey,
+      })
+      .build();
+    items.push(cardDiscardTray);
 
     // Trả về nextX (cách ra một chút để phần Token không bị dính vào Puller)
     return {
       items,
-      nextX: startX + desiredCardWidth * 2 + 2,
+      nextX: startX + cardDiscardTraySizeInGrid + 1,
     };
   }
 
@@ -782,6 +884,7 @@ export class DiceThroneSetup {
       .position(trayPos)
       .metadata({ isDiceTray: true, hero: heroKey })
       .name(`${heroKey} Dice Tray`)
+      .strokeWidth(10)
       .build();
     items.push(tray);
 
@@ -953,8 +1056,7 @@ export class DiceThroneSetup {
       const nameLoweCase = fileName.toLowerCase();
 
       // Lọc các file tracker
-      if (["tracker"].some((key) => nameLoweCase.includes(key)))
-        continue;
+      if (["tracker"].some((key) => nameLoweCase.includes(key))) continue;
 
       const url = this.proxyUrl(rawUrl);
       const dim = await this.getImageDimensions(url);
@@ -980,8 +1082,6 @@ export class DiceThroneSetup {
     }
 
     return { items, nextX: currentX };
-
-
   }
   getElement() {
     return this.container;
