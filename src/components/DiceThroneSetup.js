@@ -973,7 +973,7 @@ export class DiceThroneSetup {
         .id(`${heroKey}_${fileName}_board`)
         .position(boardPos)
         .scale({ x: scale, y: scale })
-        .layer("CHARACTER")
+        .layer("MOUNT")
         .zIndex(0)
         .metadata({ isTrackerBoard: true, hero: heroKey })
         .build();
