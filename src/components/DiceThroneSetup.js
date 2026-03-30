@@ -712,7 +712,7 @@ export class DiceThroneSetup {
         .scale({ x: scale, y: scale })
         .layer("CHARACTER")
         .metadata({ isCard: true, isDrawn: false, hero: heroKey })
-        .zIndex(index)
+        .zIndex(-index)
         .build();
 
       items.push(card);
@@ -730,7 +730,7 @@ export class DiceThroneSetup {
       .id(`${heroKey}_card_back`)
       .position({ x: startX * GRID_UNIT, y: 0 })
       .scale({ x: scale, y: scale })
-      .layer("CHARACTER")
+      .layer("TEXT")
       .metadata({ hero: heroKey })
       .zIndex(100)
       .build();
@@ -819,7 +819,7 @@ export class DiceThroneSetup {
             y: row * 2 * GRID_UNIT,
           })
           .scale({ x: scale, y: scale })
-          .layer("CHARACTER")
+          .layer("TEXT")
           // Cài zIndex để cái sau nằm trên cái trước trong chồng 10 cái
           .zIndex(i)
           .metadata({ isToken: true, hero: heroKey })
