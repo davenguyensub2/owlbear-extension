@@ -507,7 +507,7 @@ export class DiceThroneSetup {
     });
   }
 
-  getImageDimensions(url) {
+  async getImageDimensions(url) {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -537,8 +537,6 @@ export class DiceThroneSetup {
       itemsToSpawn.push(...boardRes.items);
       currentX = boardRes.nextX;
 
-      await this.sleep(500);
-
       const leafletRes = await this.setupLeaflets(
         heroKey,
         heroData.folders.leaflet?.files,
@@ -546,8 +544,6 @@ export class DiceThroneSetup {
       );
       itemsToSpawn.push(...leafletRes.items);
       currentX = leafletRes.nextX;
-
-      await this.sleep(500);
 
       // 2. Cards (Tối ưu: Chỉ đo 1 lần cho cả xấp)
       const cardRes = await this.setupCards(
@@ -558,8 +554,6 @@ export class DiceThroneSetup {
       itemsToSpawn.push(...cardRes.items);
       currentX = cardRes.nextX;
 
-      await this.sleep(500);
-
       // 3. Tokens (Tối ưu: Chỉ đo 1 lần)
       const tokenRes = await this.setupTokens(
         heroKey,
@@ -568,8 +562,6 @@ export class DiceThroneSetup {
       );
       itemsToSpawn.push(...tokenRes.items);
       currentX = tokenRes.nextX;
-
-      await this.sleep(500);
 
       // 4. Dice & Tray
       const diceRes = await this.setupDiceSystem(
@@ -580,8 +572,6 @@ export class DiceThroneSetup {
       itemsToSpawn.push(...diceRes.items);
       currentX = diceRes.nextX;
 
-      await this.sleep(500);
-
       // 5. Tracker
       const trackerRes = await this.setupTrackers(
         heroKey,
@@ -591,8 +581,6 @@ export class DiceThroneSetup {
       itemsToSpawn.push(...trackerRes.items);
       currentX = trackerRes.nextX;
 
-      await this.sleep(500);
-
       // 6. Extra items
       const extraRes = await this.setupExtraItems(
         heroKey,
@@ -601,8 +589,6 @@ export class DiceThroneSetup {
       );
       itemsToSpawn.push(...extraRes.items);
       currentX = extraRes.nextX;
-
-      await this.sleep(500);
 
       // --- CUỐI CÙNG: Đẩy tất cả lên Scene một lần duy nhất ---
       if (itemsToSpawn.length > 0) {
