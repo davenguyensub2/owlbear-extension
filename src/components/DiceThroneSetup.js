@@ -208,8 +208,8 @@ export class DiceThroneSetup {
     const GRID_UNIT = 150;
     const updates = [];
     const localItems = [];
-    const DRAW_OFFSET_X = 0 * GRID_UNIT;
-    const DRAW_OFFSET_Y = 5 * GRID_UNIT;
+    const DRAW_OFFSET_X = 3 * GRID_UNIT;
+    const DRAW_OFFSET_Y = 0 * GRID_UNIT;
 
     if (cardPullers.length === 0 || cards.length === 0) return [];
 
@@ -310,9 +310,9 @@ export class DiceThroneSetup {
       return cardDiscardTrays.some((tray) => {
         return (
           card.position.x >= tray.position.x &&
-          card.position.x <= tray.position.x + (tray.width || 0) &&
+          card.position.x <= tray.position.x + (tray.width || 17 * GRID_UNIT) &&
           card.position.y >= tray.position.y &&
-          card.position.y <= tray.position.y + (tray.height || 0)
+          card.position.y <= tray.position.y + (tray.height || 11 * GRID_UNIT)
         );
       });
     });
@@ -501,21 +501,23 @@ export class DiceThroneSetup {
     }
   }
 
-  sleep(ms) {
-    return new Promise((resolve) => {
+  async sleep(ms) {
+    return await new Promise(async (resolve) => {
       setTimeout(resolve, ms);
     });
   }
 
-  async getImageDimensions(url) {
+  getImageDimensions(url) {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
-        resolve({ w: img.naturalWidth || 300, h: img.naturalHeight || 300 });
+        // Nghỉ 500ms SAU KHI thành công rồi mới báo cho hàm ngoài chạy tiếp
+        setTimeout(() => resolve({ w: img.naturalWidth, h: img.naturalHeight }), 500);
       };
       img.onerror = () => {
-        console.warn(`[429/Error] Dùng size mặc định cho: ${url}`);
-        resolve({ w: 300, h: 300 });
+        console.warn(`[429/Error]: ${url}`);
+        // Lỗi cũng phải nghỉ rồi mới resolve
+        setTimeout(() => resolve({ w: 300, h: 300 }), 500);
       };
       img.src = url;
     });
@@ -635,7 +637,7 @@ export class DiceThroneSetup {
             ? "Hero Board (Front)"
             : `Hero Board (State ${index + 1})`,
         )
-        .metadata({ isBoard: true })
+        .metadata({ isBoard: true, isCardDiscardTray: true })
         .build();
 
       items.push(boardItem);
@@ -744,11 +746,11 @@ export class DiceThroneSetup {
       .id(`${heroKey}_card_puller`)
       .shapeType("RECTANGLE")
       .width(finalWidth)
-      .height(finalHeight)
+      .height(finalHeight * 1.2)
       .fillColor("#00ffcc") // Màu xanh neon dễ thấy
       .fillOpacity(0.3) // Làm mờ để vẫn thấy bài bên dưới
       .strokeColor("#ffffff")
-      .strokeWidth(2)
+      .strokeWidth(20)
       .position({ x: (startX + desiredCardWidth + 1) * GRID_UNIT, y: 0 })
       .layer("MOUNT") // Đặt ở layer cao hơn để dễ nắm kéo
       .name("Kéo để rút bài")
@@ -795,7 +797,7 @@ export class DiceThroneSetup {
 
     const firstUrl = this.proxyUrl(files[0]);
     const dim = await this.getImageDimensions(firstUrl);
-    const scale = (1 * GRID_UNIT) / dim.w;
+    const scale = (1.5 * GRID_UNIT) / dim.w;
 
     let col = 0;
     let row = 0;
@@ -986,6 +988,7 @@ export class DiceThroneSetup {
         .fontSize(schema.fontSize)
         .layer("ATTACHMENT")
         .zIndex(2)
+        .disableHit(true)
         .attachedTo(board.id)
         .locked(true)
         .build();
