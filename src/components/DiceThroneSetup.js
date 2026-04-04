@@ -393,7 +393,8 @@ export class DiceThroneSetup {
         const direction = diffY < 0 ? 1 : -1;
 
         // 2. Xác định lượng thay đổi (1 hoặc 5)
-        const amount = absDiffY >= THRESHOLD_5 ? 5 : 1;
+        let amount = 1;
+        if (absDiffY > THRESHOLD_5) amount = window.prompt(`Số lượng muốn ${direction > 0 ? "tăng" : "giảm"}:`);
         const change = amount * direction;
 
         // 3. Lấy text item để cập nhật giá trị
@@ -531,14 +532,6 @@ export class DiceThroneSetup {
       let currentX = 0;
 
       // 1. Board & Leaflets (Cố định, đo từng cái)
-      const boardRes = await this.setupBoards(
-        heroKey,
-        heroData.folders.board?.files,
-        currentX,
-      );
-      itemsToSpawn.push(...boardRes.items);
-      currentX = boardRes.nextX;
-
       const leafletRes = await this.setupLeaflets(
         heroKey,
         heroData.folders.leaflet?.files,
@@ -547,16 +540,15 @@ export class DiceThroneSetup {
       itemsToSpawn.push(...leafletRes.items);
       currentX = leafletRes.nextX;
 
-      // 2. Cards (Tối ưu: Chỉ đo 1 lần cho cả xấp)
-      const cardRes = await this.setupCards(
+      const boardRes = await this.setupBoards(
         heroKey,
-        heroData.folders.cards?.files,
+        heroData.folders.board?.files,
         currentX,
       );
-      itemsToSpawn.push(...cardRes.items);
-      currentX = cardRes.nextX;
+      itemsToSpawn.push(...boardRes.items);
+      currentX = boardRes.nextX;
 
-      // 3. Tokens (Tối ưu: Chỉ đo 1 lần)
+      // 2. Tokens (Tối ưu: Chỉ đo 1 lần)
       const tokenRes = await this.setupTokens(
         heroKey,
         heroData.folders.token?.files,
@@ -564,6 +556,15 @@ export class DiceThroneSetup {
       );
       itemsToSpawn.push(...tokenRes.items);
       currentX = tokenRes.nextX;
+
+      // 3. Cards (Tối ưu: Chỉ đo 1 lần cho cả xấp)
+      const cardRes = await this.setupCards(
+        heroKey,
+        heroData.folders.cards?.files,
+        currentX,
+      );
+      itemsToSpawn.push(...cardRes.items);
+      currentX = cardRes.nextX;
 
       // 4. Dice & Tray
       const diceRes = await this.setupDiceSystem(
